@@ -1,7 +1,13 @@
 import os
 import requests
 from pyrogram import Client, filters
-from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.action_chains import ActionChains
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 # Telegram Bot Config
 API_ID = "22469064"
@@ -19,24 +25,43 @@ CHANNEL_ID = "-1002170811388"
 
 app = Client("terabox_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-def extract_download_link(terabox_url):
+def extract_download_link_selenium(terabox_url):
     """
-    Extract direct download link from a Terabox shared link.
+    Extract direct download link from a Terabox shared link using Selenium.
     """
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36"
-    }
+    options = Options()
+    options.add_argument("--headless")  # Run headlessly (no GUI)
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
 
-    response = requests.get(terabox_url, headers=headers, cookies=TERABOX_COOKIES)
-    if response.status_code != 200:
+    # Set up Selenium WebDriver (Chrome)
+    driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
+
+    driver.get(terabox_url)
+
+    try:
+        # Wait until the download button is clickable (or a specific element you expect)
+        WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "a.download-button"))
+        )
+
+        # Click the download button (if necessary)
+        download_button = driver.find_element(By.CSS_SELECTOR, "a.download-button")
+        link = download_button.get_attribute("href")
+
+        # In case there's an additional pop-up or frame to handle
+        # Wait until the frame or element disappears or is replaced with the final download
+        WebDriverWait(driver, 20).until(
+            EC.url_changes(driver.current_url)
+        )
+
+        return link
+    except Exception as e:
+        print(f"Error occurred while extracting the link: {str(e)}")
+        driver.quit()
         return None
-
-    soup = BeautifulSoup(response.text, "html.parser")
-    download_button = soup.find("a", {"class": "download-button"})
-
-    if download_button:
-        return download_button["href"]  # Direct download URL
-    return None
+    finally:
+        driver.quit()
 
 def download_file(file_url, save_path):
     """
@@ -63,8 +88,8 @@ async def handle_link(client, message):
 
     await message.reply_text("Processing your link... Please wait.")
 
-    # Step 1: Extract download link
-    direct_link = extract_download_link(terabox_url)
+    # Step 1: Extract download link using Selenium
+    direct_link = extract_download_link_selenium(terabox_url)
     if not direct_link:
         await message.reply_text("Failed to extract the download link. Please check your URL or try again.")
         return
