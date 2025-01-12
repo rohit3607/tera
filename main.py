@@ -1,7 +1,7 @@
 import os
 import requests
 from pyrogram import Client, filters
-from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
 
 # Telegram Bot Config
 API_ID = "22469064"
@@ -18,28 +18,26 @@ CHANNEL_ID = "-1002170811388"
 
 app = Client("terabox_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-def extract_download_link_playwright(terabox_url):
+
+async def extract_download_link_playwright(terabox_url):
     """
-    Extract direct download link from a Terabox shared link using Playwright.
+    Extract direct download link from a Terabox shared link using Playwright (async).
     """
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)  # Launch the browser in headless mode
-        page = browser.new_page()
-
-        # Go to the Terabox URL
-        page.goto(terabox_url)
-
-        # Wait for the page to load completely
-        page.wait_for_selector(".download-button", timeout=30000)
-
-        # Extract the download link
-        download_button = page.query_selector(".download-button")
-        if download_button:
-            download_link = download_button.get_attribute("href")
-            browser.close()
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)  # Run browser in headless mode
+        page = await browser.new_page()
+        
+        try:
+            await page.goto(terabox_url)
+            await page.wait_for_selector("a.download-button", timeout=10000)  # Wait for the download button to load
+            download_link = await page.get_attribute("a.download-button", "href")
             return download_link
-        browser.close()
-        return None
+        except Exception as e:
+            print(f"Error extracting download link: {e}")
+            return None
+        finally:
+            await browser.close()
+
 
 def download_file(file_url, save_path):
     """
@@ -66,8 +64,8 @@ async def handle_link(client, message):
 
     await message.reply_text("Processing your link... Please wait.")
 
-    # Step 1: Extract download link using Playwright
-    direct_link = extract_download_link_playwright(terabox_url)
+    # Step 1: Extract download link using Playwright async function
+    direct_link = await extract_download_link_playwright(terabox_url)  # Note the await keyword
     if not direct_link:
         await message.reply_text("Failed to extract the download link. Please check your URL or try again.")
         return
