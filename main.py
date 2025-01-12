@@ -3,7 +3,6 @@ import requests
 from pyrogram import Client, filters
 from bs4 import BeautifulSoup
 
-
 # Telegram Bot Config
 API_ID = "22469064"
 API_HASH = "c05481978a217fdb11fa6774b15cba32"
@@ -34,7 +33,7 @@ def extract_download_link(terabox_url):
 
     soup = BeautifulSoup(response.text, "html.parser")
     download_button = soup.find("a", {"class": "download-button"})
-    
+
     if download_button:
         return download_button["href"]  # Direct download URL
     return None
@@ -54,11 +53,11 @@ def download_file(file_url, save_path):
                 f.write(chunk)
     return save_path
 
-@app.on_message(filters.command("start"))
+@app.on_message(filters.command(["start"]))
 async def start(client, message):
     await message.reply_text("Welcome to the Terabox Downloader Bot! Send me a Terabox link to get started.")
 
-@app.on_message(filters.text & ~filters.command())
+@app.on_message(filters.text & ~filters.command(["start"]))
 async def handle_link(client, message):
     terabox_url = message.text.strip()
 
