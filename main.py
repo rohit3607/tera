@@ -1,28 +1,7 @@
 import os
 import requests
 from pyrogram import Client, filters
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.service import Service
-
-
-options = webdriver.ChromeOptions()
-options.add_argument('--headless')  # Ensure headless mode
-options.add_argument('--no-sandbox')  # Avoids sandbox issues
-options.add_argument('--disable-dev-shm-usage')  # Prevents shared memory issues
-options.add_argument('--remote-debugging-port=9222')  # Debugging port, may help with stability
-
-# Set binary location explicitly (only if needed)
-options.binary_location = "/usr/bin/google-chrome"  # Use the path to Chrome binary if it's non-standard
-
-service = Service(ChromeDriverManager().install())
-
-driver = webdriver.Chrome(service=service, options=options)
+from playwright.sync_api import sync_playwright
 
 # Telegram Bot Config
 API_ID = "22469064"
@@ -32,7 +11,6 @@ BOT_TOKEN = "7942169109:AAHQeVhqf0hdM34qiyMVpAeSxjpKeZCfRMk"
 # Terabox Session Cookies (if login is required)
 TERABOX_COOKIES = {
     "cookie_name1": "PANWEB=1; csrfToken=tl2pqlIpZs-nq51FEEph_DW8; lang=en; TSID=3g9dXlXOottLSsQspciI9TLgJ3xdVY2m; __bid_n=18ea84278b11d086d64207; _ga=none; ndus=Yq7EMC3teHuiP-N36C2DBOIumBe6Fxt1NCf6es6w; browserid==H5Q7WeEh7u4Dhru6_RM96NUURbH7uwuPeAMiIjm4UCmk9ckdC2IS6TI04w0=; ndut_fmt=0783FEEEE10AA527370BA9BD3BFD896272C84225A1E2DFFBE420CE1B1BC7D99A; _ga_06ZNKL8C2E=none",
-    "cookie_name2": "PANWEB=1; csrfToken=tl2pqlIpZs-nq51FEEph_DW8; lang=en; TSID=3g9dXlXOottLSsQspciI9TLgJ3xdVY2m; __bid_n=18ea84278b11d086d64207; _ga=none; ndus=Yq7EMC3teHuiP-N36C2DBOIumBe6Fxt1NCf6es6w; browserid==H5Q7WeEh7u4Dhru6_RM96NUURbH7uwuPeAMiIjm4UCmk9ckdC2IS6TI04w0=; ndut_fmt=0783FEEEE10AA527370BA9BD3BFD896272C84225A1E2DFFBE420CE1B1BC7D99A; _ga_06ZNKL8C2E=none",
 }
 
 # Channel where files are stored
@@ -40,43 +18,28 @@ CHANNEL_ID = "-1002170811388"
 
 app = Client("terabox_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-def extract_download_link_selenium(terabox_url):
+def extract_download_link_playwright(terabox_url):
     """
-    Extract direct download link from a Terabox shared link using Selenium.
+    Extract direct download link from a Terabox shared link using Playwright.
     """
-    options = Options()
-    options.add_argument("--headless")  # Run headlessly (no GUI)
-    options.add_argument("--disable-gpu")
-    options.add_argument("--no-sandbox")
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)  # Launch the browser in headless mode
+        page = browser.new_page()
 
-    # Set up Selenium WebDriver (Chrome)
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=options)
+        # Go to the Terabox URL
+        page.goto(terabox_url)
 
-    driver.get(terabox_url)
+        # Wait for the page to load completely
+        page.wait_for_selector(".download-button", timeout=30000)
 
-    try:
-        # Wait until the download button is clickable
-        WebDriverWait(driver, 20).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, "a.download-button"))
-        )
-
-        # Click the download button (if necessary)
-        download_button = driver.find_element(By.CSS_SELECTOR, "a.download-button")
-        link = download_button.get_attribute("href")
-
-        # In case there's an additional pop-up or frame to handle
-        WebDriverWait(driver, 20).until(
-            EC.url_changes(driver.current_url)
-        )
-
-        return link
-    except Exception as e:
-        print(f"Error occurred while extracting the link: {str(e)}")
-        driver.quit()
+        # Extract the download link
+        download_button = page.query_selector(".download-button")
+        if download_button:
+            download_link = download_button.get_attribute("href")
+            browser.close()
+            return download_link
+        browser.close()
         return None
-    finally:
-        driver.quit()
 
 def download_file(file_url, save_path):
     """
@@ -97,14 +60,14 @@ def download_file(file_url, save_path):
 async def start(client, message):
     await message.reply_text("Welcome to the Terabox Downloader Bot! Send me a Terabox link to get started.")
 
-@app.on_message(filters.text & ~filters.command([]))
+@app.on_message(filters.text & ~filters.command())
 async def handle_link(client, message):
     terabox_url = message.text.strip()
 
     await message.reply_text("Processing your link... Please wait.")
 
-    # Step 1: Extract download link using Selenium
-    direct_link = extract_download_link_selenium(terabox_url)
+    # Step 1: Extract download link using Playwright
+    direct_link = extract_download_link_playwright(terabox_url)
     if not direct_link:
         await message.reply_text("Failed to extract the download link. Please check your URL or try again.")
         return
@@ -123,16 +86,13 @@ async def handle_link(client, message):
     # Step 3: Send file to the user and channel
     try:
         # Send file to the user
-        if os.path.exists(save_path):
-            print(f"Sending file to the user: {save_path}")
-            await client.send_document(
-                chat_id=message.chat.id,
-                document=save_path,
-                caption=f"Here is your file: {file_name}",
-            )
+        await client.send_document(
+            chat_id=message.chat.id,
+            document=save_path,
+            caption=f"Here is your file: {file_name}",
+        )
 
         # Send file to the channel
-        print(f"Sending file to the channel: {save_path}")
         await client.send_document(
             chat_id=CHANNEL_ID,
             document=save_path,
