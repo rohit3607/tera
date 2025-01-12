@@ -3,16 +3,20 @@ import requests
 from pyrogram import Client, filters
 from bs4 import BeautifulSoup
 
+
 # Telegram Bot Config
-API_ID = "your_api_id"
-API_HASH = "your_api_hash"
-BOT_TOKEN = "your_bot_token"
+API_ID = "22469064"
+API_HASH = "c05481978a217fdb11fa6774b15cba32"
+BOT_TOKEN = "7942169109:AAHQeVhqf0hdM34qiyMVpAeSxjpKeZCfRMk"
 
 # Terabox Session Cookies (if login is required)
 TERABOX_COOKIES = {
-    "cookie_name1": "cookie_value1",
-    "cookie_name2": "cookie_value2",
+    "cookie_name1": "PANWEB=1; csrfToken=tl2pqlIpZs-nq51FEEph_DW8; lang=en; TSID=3g9dXlXOottLSsQspciI9TLgJ3xdVY2m; __bid_n=18ea84278b11d086d64207; _ga=none; ndus=Yq7EMC3teHuiP-N36C2DBOIumBe6Fxt1NCf6es6w; browserid==H5Q7WeEh7u4Dhru6_RM96NUURbH7uwuPeAMiIjm4UCmk9ckdC2IS6TI04w0=; ndut_fmt=0783FEEEE10AA527370BA9BD3BFD896272C84225A1E2DFFBE420CE1B1BC7D99A; _ga_06ZNKL8C2E=none",
+    "cookie_name2": "PANWEB=1; csrfToken=tl2pqlIpZs-nq51FEEph_DW8; lang=en; TSID=3g9dXlXOottLSsQspciI9TLgJ3xdVY2m; __bid_n=18ea84278b11d086d64207; _ga=none; ndus=Yq7EMC3teHuiP-N36C2DBOIumBe6Fxt1NCf6es6w; browserid==H5Q7WeEh7u4Dhru6_RM96NUURbH7uwuPeAMiIjm4UCmk9ckdC2IS6TI04w0=; ndut_fmt=0783FEEEE10AA527370BA9BD3BFD896272C84225A1E2DFFBE420CE1B1BC7D99A; _ga_06ZNKL8C2E=none",
 }
+
+# Channel where files are stored
+CHANNEL_ID = "-1002170811388"
 
 app = Client("terabox_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
@@ -77,12 +81,20 @@ async def handle_link(client, message):
         await message.reply_text(f"Failed to download the file: {str(e)}")
         return
 
-    # Step 3: Send file to the user
+    # Step 3: Send file to the user and channel
     try:
+        # Send file to the user
         await client.send_document(
             chat_id=message.chat.id,
             document=save_path,
             caption=f"Here is your file: {file_name}",
+        )
+
+        # Send file to the channel
+        await client.send_document(
+            chat_id=CHANNEL_ID,
+            document=save_path,
+            caption=f"File stored from user {message.from_user.mention}: {file_name}",
         )
     except Exception as e:
         await message.reply_text(f"Failed to send the file: {str(e)}")
