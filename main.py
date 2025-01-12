@@ -8,6 +8,21 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.service import Service
+
+
+options = webdriver.ChromeOptions()
+options.add_argument('--headless')  # Ensure headless mode
+options.add_argument('--no-sandbox')  # Avoids sandbox issues
+options.add_argument('--disable-dev-shm-usage')  # Prevents shared memory issues
+options.add_argument('--remote-debugging-port=9222')  # Debugging port, may help with stability
+
+# Set binary location explicitly (only if needed)
+options.binary_location = "/usr/bin/google-chrome"  # Use the path to Chrome binary if it's non-standard
+
+service = Service(ChromeDriverManager().install())
+
+driver = webdriver.Chrome(service=service, options=options)
 
 # Telegram Bot Config
 API_ID = "22469064"
