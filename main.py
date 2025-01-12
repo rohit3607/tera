@@ -58,7 +58,7 @@ def download_file(file_url, save_path):
 async def start(client, message):
     await message.reply_text("Welcome to the Terabox Downloader Bot! Send me a Terabox link to get started.")
 
-@app.on_message(filters.text & ~filters.command)
+@app.on_message(filters.text & ~filters.command())
 async def handle_link(client, message):
     terabox_url = message.text.strip()
 
