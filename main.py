@@ -29,7 +29,7 @@ async def extract_download_link_playwright(terabox_url):
         
         try:
             await page.goto(terabox_url)
-            await page.wait_for_selector("a.download-button", timeout=10000)  # Wait for the download button to load
+            await page.wait_for_selector("a.download-button", timeout=30000)  # Wait for the download button to load
             download_link = await page.get_attribute("a.download-button", "href")
             return download_link
         except Exception as e:
