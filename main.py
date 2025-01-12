@@ -2,12 +2,12 @@ import os
 import requests
 from pyrogram import Client, filters
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.action_chains import ActionChains
-from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
 
 # Telegram Bot Config
 API_ID = "22469064"
@@ -35,12 +35,13 @@ def extract_download_link_selenium(terabox_url):
     options.add_argument("--no-sandbox")
 
     # Set up Selenium WebDriver (Chrome)
-    driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=options)
 
     driver.get(terabox_url)
 
     try:
-        # Wait until the download button is clickable (or a specific element you expect)
+        # Wait until the download button is clickable
         WebDriverWait(driver, 20).until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, "a.download-button"))
         )
@@ -50,7 +51,6 @@ def extract_download_link_selenium(terabox_url):
         link = download_button.get_attribute("href")
 
         # In case there's an additional pop-up or frame to handle
-        # Wait until the frame or element disappears or is replaced with the final download
         WebDriverWait(driver, 20).until(
             EC.url_changes(driver.current_url)
         )
@@ -78,11 +78,11 @@ def download_file(file_url, save_path):
                 f.write(chunk)
     return save_path
 
-@app.on_message(filters.command(["start"]))
+@app.on_message(filters.command("start"))
 async def start(client, message):
     await message.reply_text("Welcome to the Terabox Downloader Bot! Send me a Terabox link to get started.")
 
-@app.on_message(filters.text & ~filters.command(["start"]))
+@app.on_message(filters.text & ~filters.command())
 async def handle_link(client, message):
     terabox_url = message.text.strip()
 
@@ -108,13 +108,16 @@ async def handle_link(client, message):
     # Step 3: Send file to the user and channel
     try:
         # Send file to the user
-        await client.send_document(
-            chat_id=message.chat.id,
-            document=save_path,
-            caption=f"Here is your file: {file_name}",
-        )
+        if os.path.exists(save_path):
+            print(f"Sending file to the user: {save_path}")
+            await client.send_document(
+                chat_id=message.chat.id,
+                document=save_path,
+                caption=f"Here is your file: {file_name}",
+            )
 
         # Send file to the channel
+        print(f"Sending file to the channel: {save_path}")
         await client.send_document(
             chat_id=CHANNEL_ID,
             document=save_path,
